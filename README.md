@@ -36,7 +36,7 @@ seq 0 0.1 10 | awk '{print $1, sin($1)}' | vis line --xlab "Time" --ylab "sin(t)
 
 ## More examples
 
-### Histogram: Kubernetes Pod Ages
+### Histogram: Kubernetes pod ages
 
 ```shell
 kubectl get pods --all-namespaces | vis hist --col 5 --sep '   ' --unit day --kde --xlab 'Pod age (days)'

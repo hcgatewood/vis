@@ -59,6 +59,14 @@ class Unit(Enum):
     Day = "days"
 
 
+class Stat(Enum):
+    Count = "count"
+    Freq = "frequency"
+    Prob = "probability"
+    Percent = "percent"
+    Density = "density"
+
+
 @click.group(context_settings=dict(help_option_names=["-h", "--help"], max_content_width=120))
 def cli():
     """A fuzzy tabular data visualization tool."""
@@ -72,6 +80,7 @@ def cli():
 @click.option("--justsave", is_flag=True, help="Save the plot to file without displaying it.")
 @click.option("--output", "-o", help="Output filename for the plot. Implies --save.")
 @click.option("--xlab", default="Value", show_default=True, help="Label for the x-axis.")
+@click.option("--ylab", default=None, help="Label for the y-axis.")
 @click.option("--title", help="Title for the plot.")
 @click.option("--col", type=int, default=0, show_default=True, help="Column index to plot.")
 @click.option("--static", is_flag=True, help="Use cols to index into columns instead of list of floats.")
@@ -81,6 +90,8 @@ def cli():
 @click.option("--barcolor", type=str, default="skyblue", help="Color for the histogram bars.")
 @click.option("--baredge", type=str, default="black", help="Edge color for the histogram bars.")
 @click.option("--baralpha", type=float, default=0.75, help="Alpha value for the histogram bars.")
+@click.option("--stat", type=Choice(Stat, case_sensitive=False), default=Stat.Count, show_default=True, help="Statistical measure to display in the histogram.")
+@click.option("--step", type=int, default=None, help="Step size for x-axis ticks.")
 @click.option("--kde", is_flag=True, help="Add a kernel density estimate (KDE) to the histogram.")
 @click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
@@ -93,6 +104,7 @@ def hist_cmd(
     justsave: bool,
     output: str,
     xlab: str,
+    ylab: Optional[str],
     title: str,
     col: int,
     static: bool,
@@ -102,6 +114,8 @@ def hist_cmd(
     barcolor: str,
     baredge: str,
     baralpha: float,
+    stat: Stat,
+    step: Optional[int],
     kde: bool,
     unit: Optional[Unit],
     strict: bool,
@@ -130,14 +144,29 @@ def hist_cmd(
     if xmin is not None or xmax is not None:
         binrange = (xmin or x.min(), xmax or x.max())
         plt.xlim(*binrange)
-    sns.histplot(x, bins=n_bins or "auto", binrange=binrange, color=barcolor, edgecolor=baredge, alpha=baralpha, kde=kde, label=f"{xlab} (n = {len(x)})")
+    sns.histplot(
+        x,
+        bins=n_bins or "auto",
+        binrange=binrange,
+        color=barcolor,
+        edgecolor=baredge,
+        alpha=baralpha,
+        stat=stat.value,
+        kde=kde,
+        label=f"{xlab} (n = {len(x)})",
+    )
     plt.title(title or "Histogram of Input Data", fontsize=16, fontweight="bold")
     plt.legend(fontsize=12)
     plt.xlabel(xlab, fontsize=14)
-    plt.ylabel("Frequency", fontsize=14)
+    plt.ylabel(ylab if ylab is not None else stat.value.title(), fontsize=14)
     plt.grid(axis="y", linestyle="--", alpha=0.7)
     plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
     plt.tight_layout()
+
+    if step:
+        plt_xmin, plt_xmax = round_down(xmin or x.min(), step), round_up(xmax or x.max(), 5)
+        plt.xticks(np.arange(plt_xmin, plt_xmax + 1, step=step), fontsize=12)
 
     do_save = any((save, justsave, output))
     do_show = not justsave
@@ -145,6 +174,16 @@ def hist_cmd(
         save_plot(output or title_to_filename(title, "hist"), force)
     if do_show:
         plt.show()
+
+
+def round_up(k: float, multiple: int) -> int:
+    """Round up k to the nearest multiple of multiple."""
+    return np.ceil(k / multiple) * multiple
+
+
+def round_down(k: float, multiple: int) -> int:
+    """Round down k to the nearest multiple of multiple."""
+    return np.floor(k / multiple) * multiple
 
 
 @cli.command(name="line")
