@@ -498,7 +498,10 @@ def get_nd_values(
             if verbose:
                 click.echo(f"WARN: {msg}", err=True)
     if not vals:
-        raise click.ClickException("no valid numeric data provided")
+        msg = "no valid numeric data provided"
+        rec = "; consider --verbose or --strict for more details"
+        quiet = not any((verbose, strict))
+        raise click.ClickException(f"{msg}{rec if quiet else ''}")
 
     if sort:
         vals.sort()
