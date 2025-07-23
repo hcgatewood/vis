@@ -37,15 +37,26 @@ import os
 import re
 import sys
 from dataclasses import dataclass
+from datetime import timedelta
+from enum import Enum
 from typing import Optional
 
 import click
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from click import Choice
+from pytimeparse import parse as parse_duration
 from scipy.stats import linregress
 
 NUMERIC_REGEX = re.compile(r"[-+]?(?:\d*\.\d+|\d+)")
+
+
+class Unit(Enum):
+    Sec = "seconds"
+    Min = "minutes"
+    Hour = "hours"
+    Day = "days"
 
 
 @click.group(context_settings=dict(help_option_names=["-h", "--help"], max_content_width=120))
@@ -57,9 +68,9 @@ def cli():
 @cli.command(name="hist")
 @click.option("--bins", "n_bins", type=int, default=0, show_default=True, help="Number of bins for the histogram.")
 @click.option("--file", "-f", default="-", show_default=True, help="Path to the input file. Defaults to stdin.")
-@click.option("--save", is_flag=True, help="Save the plot to file instead of displaying it.")
+@click.option("--save", is_flag=True, help="Save the plot to file.")
 @click.option("--justsave", is_flag=True, help="Save the plot to file without displaying it.")
-@click.option("--output", "-o", help="Output filename for the plot.")
+@click.option("--output", "-o", help="Output filename for the plot. Implies --save.")
 @click.option("--xlab", default="Value", show_default=True, help="Label for the x-axis.")
 @click.option("--title", help="Title for the plot.")
 @click.option("--col", type=int, default=0, show_default=True, help="Column index to plot.")
@@ -71,6 +82,7 @@ def cli():
 @click.option("--baredge", type=str, default="black", help="Edge color for the histogram bars.")
 @click.option("--baralpha", type=float, default=0.75, help="Alpha value for the histogram bars.")
 @click.option("--kde", is_flag=True, help="Add a kernel density estimate (KDE) to the histogram.")
+@click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--force", is_flag=True, help="Overwrite the output file if it exists.")
 @click.option("--verbose", is_flag=True, help="Print verbose output.")
@@ -91,13 +103,25 @@ def hist_cmd(
     baredge: str,
     baralpha: float,
     kde: bool,
+    unit: Optional[Unit],
     strict: bool,
     force: bool,
     verbose: bool,
 ):
     """Create a histogram from numerical data."""
     rows = read_data(file)
-    x = get_1d_values(rows, col, static=static, sep=sep, xmin=xmin or float("-inf"), xmax=xmax or float("inf"), strict=strict, sort=kde, verbose=verbose)
+    x = get_1d_values(
+        rows,
+        col,
+        static=static,
+        sep=sep,
+        unit=unit,
+        xmin=xmin or float("-inf"),
+        xmax=xmax or float("inf"),
+        strict=strict,
+        sort=kde,
+        verbose=verbose,
+    )
 
     plt.close()  # HACK: close the implicit figure
     plt.figure(figsize=(10, 6), dpi=100)
@@ -115,7 +139,7 @@ def hist_cmd(
     plt.xticks(fontsize=12)
     plt.tight_layout()
 
-    do_save = save or justsave
+    do_save = any((save, justsave, output))
     do_show = not justsave
     if do_save:
         save_plot(output or title_to_filename(title, "hist"), force)
@@ -127,7 +151,7 @@ def hist_cmd(
 @click.option("--file", "-f", default="-", show_default=True, help="Path to the input file. Defaults to stdin.")
 @click.option("--save", is_flag=True, help="Save the plot to file instead of displaying it.")
 @click.option("--justsave", is_flag=True, help="Save the plot to file without displaying it.")
-@click.option("--output", "-o", help="Output filename for the plot.")
+@click.option("--output", "-o", help="Output filename for the plot. Implies --save.")
 @click.option("--xlab", default="Column 0", show_default=True, help="Label for the x-axis.")
 @click.option("--ylab", default="Column 1", show_default=True, help="Label for the y-axis.")
 @click.option("--title", help="Title for the plot.")
@@ -139,6 +163,7 @@ def hist_cmd(
 @click.option("--ymin", type=float, default=None, help="Filter y-axis values below.")
 @click.option("--ymax", type=float, default=None, help="Filter y-axis values above.")
 @click.option("--linecolor", type=str, default="skyblue", help="Set the color for the points.")
+@click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--force", is_flag=True, help="Overwrite the output file if it exists.")
 @click.option("--verbose", is_flag=True, help="Print verbose output.")
@@ -158,6 +183,7 @@ def line_cmd(
     ymin: Optional[float],
     ymax: Optional[float],
     linecolor: str,
+    unit: Optional[Unit],
     strict: bool,
     force: bool,
     verbose: bool,
@@ -169,6 +195,7 @@ def line_cmd(
         cols,
         static=static,
         sep=sep,
+        unit=unit,
         xmin=xmin or float("-inf"),
         xmax=xmax or float("inf"),
         ymin=ymin or float("-inf"),
@@ -195,7 +222,7 @@ def line_cmd(
     plt.yticks(fontsize=12)
     plt.tight_layout()
 
-    do_save = save or justsave
+    do_save = any((save, justsave, output))
     do_show = not justsave
     if do_save:
         save_plot(output or title_to_filename(title, "line"), force)
@@ -207,7 +234,7 @@ def line_cmd(
 @click.option("--file", "-f", default="-", show_default=True, help="Path to the input file. Defaults to stdin.")
 @click.option("--save", is_flag=True, help="Save the plot to file instead of displaying it.")
 @click.option("--justsave", is_flag=True, help="Save the plot to file without displaying it.")
-@click.option("--output", "-o", help="Output filename for the plot.")
+@click.option("--output", "-o", help="Output filename for the plot. Implies --save.")
 @click.option("--xlab", default="Column 0", show_default=True, help="Label for the x-axis.")
 @click.option("--ylab", default="Column 1", show_default=True, help="Label for the y-axis.")
 @click.option("--title", help="Title for the plot.")
@@ -225,6 +252,7 @@ def line_cmd(
 @click.option("--trend", is_flag=True, help="Add a linear regression trendline to the plot.")
 @click.option("--trendcolor", type=str, default="skyblue", help="Set the color for the trendline.")
 @click.option("--trendstyle", type=str, default="--", help="Set the style for the trendline.")
+@click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--force", is_flag=True, help="Overwrite the output file if it exists.")
 @click.option("--verbose", is_flag=True, help="Print verbose output.")
@@ -250,6 +278,7 @@ def scatter_cmd(
     trend: bool,
     trendcolor: str,
     trendstyle: str,
+    unit: Optional[Unit],
     strict: bool,
     force: bool,
     verbose: bool,
@@ -261,6 +290,7 @@ def scatter_cmd(
         cols,
         static=static,
         sep=sep,
+        unit=unit,
         xmin=xmin or float("-inf"),
         xmax=xmax or float("inf"),
         ymin=ymin or float("-inf"),
@@ -295,7 +325,7 @@ def scatter_cmd(
     plt.yticks(fontsize=12)
     plt.tight_layout()
 
-    do_save = save or justsave
+    do_save = any((save, justsave, output))
     do_show = not justsave
     if do_save:
         save_plot(output or title_to_filename(title, "scatter"), force)
@@ -321,6 +351,7 @@ def parse_cols(_: click.Context, __: click.Parameter, value: Optional[str]) -> O
 @click.option("--sep", type=str, default=None, help="Separator for the input columns. Implies --static.")
 @click.option("--head", type=str, default=None, help="Header row to prepend to the output.")
 @click.option("--osep", type=str, default=" ", help="Separator for the output columns.")
+@click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--sort", is_flag=True, help="Sort the output.")
 @click.option("--verbose", is_flag=True, help="Print verbose output.")
@@ -332,6 +363,7 @@ def clean_cmd(
     sep: Optional[str],
     head: Optional[str],
     osep: str,
+    unit: Optional[Unit],
     strict: bool = False,
     sort: bool = False,
     verbose: bool = False,
@@ -350,6 +382,7 @@ def clean_cmd(
         cols,
         static=static,
         sep=sep,
+        unit=unit,
         strict=strict,
         sort=sort,
         verbose=verbose,
@@ -366,6 +399,7 @@ def get_1d_values(
     *,
     static: bool,
     sep: Optional[str],
+    unit: Optional[Unit],
     xmin: float,
     xmax: float,
     strict: bool,
@@ -378,6 +412,7 @@ def get_1d_values(
         (col,),
         static=static,
         sep=sep,
+        unit=unit,
         bounds=(Bound(xmin, xmax),),
         strict=strict,
         sort=sort,
@@ -394,6 +429,7 @@ def get_2d_values(
     *,
     static: bool,
     sep: Optional[str],
+    unit: Optional[Unit],
     xmin: float,
     xmax: float,
     ymin: float,
@@ -408,6 +444,7 @@ def get_2d_values(
         cols,
         static=static,
         sep=sep,
+        unit=unit,
         bounds=(Bound(xmin, xmax), Bound(ymin, ymax)),
         strict=strict,
         sort=sort,
@@ -430,21 +467,22 @@ def get_nd_values(
     *,
     static: bool,
     sep: Optional[str],
-    bounds: Optional[tuple[Bound, ...]] = None,
+    unit: Optional[Unit],
     strict: bool,
     sort: bool,
     verbose: bool,
+    bounds: Optional[tuple[Bound, ...]] = None,
 ) -> tuple[np.ndarray, ...]:
     """Extract N-D values from a list of strings."""
     if bounds is None:
         bounds = (Bound(float("-inf"), float("inf")),) * len(cols)
-    if sep is not None:
+    if any((sep, unit)):
         static = True
 
     vals: list[tuple[float, ...]] = []
     for i, row in enumerate(rows):
         try:
-            val = parse_floats(row, cols, static, sep)
+            val = parse_floats(row, cols, static, sep, unit)
             if all(b.min < v < b.max for b, v in zip(bounds, val)):
                 vals.append(val)
         except IndexError:
@@ -453,7 +491,7 @@ def get_nd_values(
                 raise click.ClickException(msg)
             if verbose:
                 click.echo(f"WARN: {msg}", err=True)
-        except ValueError as e:
+        except (ValueError, TypeError) as e:
             msg = f"invalid row {i} ignored '{row}': {e}"
             if strict:
                 raise click.ClickException(msg)
@@ -499,19 +537,26 @@ def point_edge(n: int) -> str:
     return "black" if n <= 1_000 else "none"
 
 
-def parse_floats(row: str, cols: tuple[int, ...], static: bool, sep: str) -> tuple[float, ...]:
+def parse_floats(row: str, cols: tuple[int, ...], static: bool, sep: str, unit: Optional[Unit]) -> tuple[float, ...]:
     """Parse a row of strings as floats."""
     if static:
         columns = tuple(v for v in row.split(sep) if v.strip())
-        return tuple(parse_float(columns[col]) for col in cols)
+        return tuple(parse_float(columns[col], unit) for col in cols)
     else:
         columns = NUMERIC_REGEX.findall(row)
         return tuple(float(columns[col]) for col in cols)
 
 
-def parse_float(val: str) -> float:
+def parse_float(val: str, unit: Optional[Unit]) -> float:
     """Parse a string as a float."""
+    if unit:
+        return parse_unit(val, unit)
     return float(longest_matching_substr(val, NUMERIC_REGEX))
+
+
+def parse_unit(val: str, unit: Unit) -> float:
+    sec = parse_duration(val)
+    return sec / timedelta(**{unit.value: 1}).total_seconds()  # convert to specified unit
 
 
 def longest_matching_substr(s: str, allowed: re.Pattern) -> str:

@@ -1,6 +1,12 @@
 # Vis
 
-Visualize fuzzy tabular data, no script required.
+Visualize fuzzy tabular data without leaving the terminal.
+
+## Install
+
+```bash
+pip install vis_cli
+```
 
 ## Features
 
@@ -28,23 +34,25 @@ seq 0 0.1 10 | awk '{print $1, sin($1)}' | vis line --xlab "Time" --ylab "sin(t)
 
 <p align="center"><img src="https://raw.githubusercontent.com/hcgatewood/vis/main/assets/vis_line.png" alt="Vis line plots" width="550"/></p>
 
-## Install
+## More examples
 
-```bash
-pip install vis_cli
+### Histogram: Kubernetes Pod Ages
+
+```shell
+kubectl get pods --all-namespaces | vis hist --col 5 --sep '   ' --unit day --kde --xlab 'Pod age (days)'
 ```
 
-## More info
+<p align="center"><img src="https://raw.githubusercontent.com/hcgatewood/vis/main/assets/k8s_hist_a.png" alt="Vis histogram Kubernetes pod age" width="550"/></p>
 
-### Example histogram: Kubernetes CPU utilization
+### Histogram: Kubernetes CPU utilization
 
 ```shell
 kubectl top nodes | vis hist --static --col 2 --bins 10 --xmax 100 --xlab 'CPU util' --kde
 ```
 
-<p align="center"><img src="https://raw.githubusercontent.com/hcgatewood/vis/main/assets/k8s_hist.png" alt="Vis histogram Kubernetes CPU utilization" width="550"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/hcgatewood/vis/main/assets/k8s_hist_b.png" alt="Vis histogram Kubernetes CPU utilization" width="550"/></p>
 
-### Example scatter plot: Kubernetes pod CPU vs memory limits
+### Scatter plot: Kubernetes pod CPU vs memory limits
 
 ```shell
 kubectl resource-capacity --pods | grep -v '\*.*\*' | vis scatter --static --cols 4 6 --xlab "CPU limits" --ylab "Memory limits" --trend
@@ -52,7 +60,7 @@ kubectl resource-capacity --pods | grep -v '\*.*\*' | vis scatter --static --col
 
 <p align="center"><img src="https://raw.githubusercontent.com/hcgatewood/vis/main/assets/k8s_scatter.png" alt="Vis scatter plot Kubernetes pod CPU vs memory limits" width="550"/></p>
 
-### Help pages
+## Help pages
 
 ```text
 $ vis --help
