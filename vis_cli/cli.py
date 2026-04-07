@@ -6,6 +6,7 @@ vis visualizes fuzzy tabular data, no script required.
 Notes
 -----
 - By default, vis indexes by regex-matching floats in each row, but use --static to index by column number instead.
+- Try --time to parse the x-axis as a datetime
 
 Examples
 --------
@@ -37,7 +38,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional
 
@@ -46,6 +47,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from click import Choice
+from coda import getenv_bool
+from pdate_cli.cli import parse as parse_datetime
 from pytimeparse import parse as parse_duration
 from scipy.stats import linregress
 
@@ -94,9 +97,10 @@ def cli():
 @click.option("--step", type=int, default=None, help="Step size for x-axis ticks.")
 @click.option("--kde", is_flag=True, help="Add a kernel density estimate (KDE) to the histogram.")
 @click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
+@click.option("--time", "as_time", is_flag=True, help="Parse input as datetimes.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--force", is_flag=True, help="Overwrite the output file if it exists.")
-@click.option("--verbose", is_flag=True, help="Print verbose output.")
+@click.option("--verbose", is_flag=True, default=getenv_bool("VIS_DEBUG"), help="Print verbose output.")
 def hist_cmd(
     n_bins: int,
     file: str,
@@ -118,6 +122,7 @@ def hist_cmd(
     step: Optional[int],
     kde: bool,
     unit: Optional[Unit],
+    as_time: bool,
     strict: bool,
     force: bool,
     verbose: bool,
@@ -130,12 +135,15 @@ def hist_cmd(
         static=static,
         sep=sep,
         unit=unit,
+        as_time=as_time,
         xmin=xmin or float("-inf"),
         xmax=xmax or float("inf"),
         strict=strict,
         sort=kde,
         verbose=verbose,
     )
+    if as_time:
+        x = np.array([datetime.fromtimestamp(v) for v in x])
 
     plt.close()  # HACK: close the implicit figure
     plt.figure(figsize=(10, 6), dpi=100)
@@ -165,7 +173,7 @@ def hist_cmd(
     plt.tight_layout()
 
     if step:
-        plt_xmin, plt_xmax = round_down(xmin or x.min(), step), round_up(xmax or x.max(), 5)
+        plt_xmin, plt_xmax = round_down(xmin or x.min(), step), round_up(xmax or x.max(), step)
         plt.xticks(np.arange(plt_xmin, plt_xmax + 1, step=step), fontsize=12)
 
     do_save = any((save, justsave, output))
@@ -203,12 +211,13 @@ def round_down(k: float, multiple: int) -> int:
 @click.option("--ymax", type=float, default=None, help="Filter y-axis values above.")
 @click.option("--linecolor", type=str, default="skyblue", help="Set the color for the points.")
 @click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
+@click.option("--time", "as_time", is_flag=True, help="Parse input x-axis as datetimes.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--force", is_flag=True, help="Overwrite the output file if it exists.")
-@click.option("--verbose", is_flag=True, help="Print verbose output.")
+@click.option("--verbose", is_flag=True, default=getenv_bool("VIS_DEBUG"), help="Print verbose output.")
 def line_cmd(
     file: str,
-    save: str,
+    save: bool,
     justsave: bool,
     output: str,
     xlab: str,
@@ -223,6 +232,7 @@ def line_cmd(
     ymax: Optional[float],
     linecolor: str,
     unit: Optional[Unit],
+    as_time: bool,
     strict: bool,
     force: bool,
     verbose: bool,
@@ -235,6 +245,7 @@ def line_cmd(
         static=static,
         sep=sep,
         unit=unit,
+        as_time=as_time,
         xmin=xmin or float("-inf"),
         xmax=xmax or float("inf"),
         ymin=ymin or float("-inf"),
@@ -243,6 +254,8 @@ def line_cmd(
         sort=True,
         verbose=verbose,
     )
+    if as_time:
+        x = np.array([datetime.fromtimestamp(v) for v in x])
 
     plt.close()  # HACK: close the implicit figure
     plt.figure(figsize=(10, 6), dpi=100)
@@ -292,12 +305,13 @@ def line_cmd(
 @click.option("--trendcolor", type=str, default="skyblue", help="Set the color for the trendline.")
 @click.option("--trendstyle", type=str, default="--", help="Set the style for the trendline.")
 @click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
+@click.option("--time", "as_time", is_flag=True, help="Parse input x-axis as datetimes.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--force", is_flag=True, help="Overwrite the output file if it exists.")
-@click.option("--verbose", is_flag=True, help="Print verbose output.")
+@click.option("--verbose", is_flag=True, default=getenv_bool("VIS_DEBUG"), help="Print verbose output.")
 def scatter_cmd(
     file: str,
-    save: str,
+    save: bool,
     justsave: bool,
     output: str,
     xlab: str,
@@ -318,6 +332,7 @@ def scatter_cmd(
     trendcolor: str,
     trendstyle: str,
     unit: Optional[Unit],
+    as_time: bool,
     strict: bool,
     force: bool,
     verbose: bool,
@@ -330,6 +345,7 @@ def scatter_cmd(
         static=static,
         sep=sep,
         unit=unit,
+        as_time=as_time,
         xmin=xmin or float("-inf"),
         xmax=xmax or float("inf"),
         ymin=ymin or float("-inf"),
@@ -338,6 +354,8 @@ def scatter_cmd(
         sort=trend,
         verbose=verbose,
     )
+    if as_time:
+        x = np.array([datetime.fromtimestamp(v) for v in x])
     n = len(x)
 
     pointalpha = pointalpha or point_alpha(n)
@@ -391,9 +409,10 @@ def parse_cols(_: click.Context, __: click.Parameter, value: Optional[str]) -> O
 @click.option("--head", type=str, default=None, help="Header row to prepend to the output.")
 @click.option("--osep", type=str, default=" ", help="Separator for the output columns.")
 @click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
+@click.option("--time", is_flag=True, help="Parse input as datetimes and output as unix timestamps.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--sort", is_flag=True, help="Sort the output.")
-@click.option("--verbose", is_flag=True, help="Print verbose output.")
+@click.option("--verbose", is_flag=True, default=getenv_bool("VIS_DEBUG"), help="Print verbose output.")
 def clean_cmd(
     file: str,
     dim: Optional[int],
@@ -403,6 +422,7 @@ def clean_cmd(
     head: Optional[str],
     osep: str,
     unit: Optional[Unit],
+    as_time: bool,
     strict: bool = False,
     sort: bool = False,
     verbose: bool = False,
@@ -411,9 +431,10 @@ def clean_cmd(
     if dim and cols:
         raise click.ClickException("cannot specify both --dim and --cols")
     if dim is not None:
-        cols = tuple(range(dim))
+        cols: tuple[int, ...] = tuple(range(dim))
     if cols is None:
-        cols = (0,)
+        cols: tuple[int, ...] = (0,)
+    cols: tuple[int, ...]  # type hint
 
     rows = read_data(file)
     vals = get_nd_values(
@@ -422,6 +443,7 @@ def clean_cmd(
         static=static,
         sep=sep,
         unit=unit,
+        as_time=as_time,
         strict=strict,
         sort=sort,
         verbose=verbose,
@@ -439,6 +461,7 @@ def get_1d_values(
     static: bool,
     sep: Optional[str],
     unit: Optional[Unit],
+    as_time: bool,
     xmin: float,
     xmax: float,
     strict: bool,
@@ -452,6 +475,7 @@ def get_1d_values(
         static=static,
         sep=sep,
         unit=unit,
+        as_time=as_time,
         bounds=(Bound(xmin, xmax),),
         strict=strict,
         sort=sort,
@@ -469,6 +493,7 @@ def get_2d_values(
     static: bool,
     sep: Optional[str],
     unit: Optional[Unit],
+    as_time: bool,
     xmin: float,
     xmax: float,
     ymin: float,
@@ -484,6 +509,7 @@ def get_2d_values(
         static=static,
         sep=sep,
         unit=unit,
+        as_time=as_time,
         bounds=(Bound(xmin, xmax), Bound(ymin, ymax)),
         strict=strict,
         sort=sort,
@@ -507,6 +533,7 @@ def get_nd_values(
     static: bool,
     sep: Optional[str],
     unit: Optional[Unit],
+    as_time: bool,
     strict: bool,
     sort: bool,
     verbose: bool,
@@ -515,13 +542,14 @@ def get_nd_values(
     """Extract N-D values from a list of strings."""
     if bounds is None:
         bounds = (Bound(float("-inf"), float("inf")),) * len(cols)
-    if any((sep, unit)):
+    bounds: tuple[Bound, ...]  # type hint
+    if any((sep, unit, as_time)):
         static = True
 
     vals: list[tuple[float, ...]] = []
     for i, row in enumerate(rows):
         try:
-            val = parse_floats(row, cols, static, sep, unit)
+            val = parse_floats(row, cols, static, sep, unit, as_time)
             if all(b.min < v < b.max for b, v in zip(bounds, val)):
                 vals.append(val)
         except IndexError:
@@ -579,18 +607,21 @@ def point_edge(n: int) -> str:
     return "black" if n <= 1_000 else "none"
 
 
-def parse_floats(row: str, cols: tuple[int, ...], static: bool, sep: str, unit: Optional[Unit]) -> tuple[float, ...]:
+def parse_floats(row: str, cols: tuple[int, ...], static: bool, sep: Optional[str], unit: Optional[Unit], as_time: bool) -> tuple[float, ...]:
     """Parse a row of strings as floats."""
     if static:
-        columns = tuple(v for v in row.split(sep) if v.strip())
-        return tuple(parse_float(columns[col], unit) for col in cols)
+        raw_columns = row.split(sep) if sep else [row]
+        columns = tuple(v for v in raw_columns if v.strip())
+        return tuple(parse_float(columns[col], unit, as_time and i == 0) for i, col in enumerate(cols))  # only parse_datetime for x-axis
     else:
         columns = NUMERIC_REGEX.findall(row)
         return tuple(float(columns[col]) for col in cols)
 
 
-def parse_float(val: str, unit: Optional[Unit]) -> float:
+def parse_float(val: str, unit: Optional[Unit], as_time: bool) -> float:
     """Parse a string as a float."""
+    if as_time:
+        return parse_datetime(val).timestamp()
     if unit:
         return parse_unit(val, unit)
     return float(longest_matching_substr(val, NUMERIC_REGEX))
@@ -603,7 +634,7 @@ def parse_unit(val: str, unit: Unit) -> float:
 
 def longest_matching_substr(s: str, allowed: re.Pattern) -> str:
     """Find the longest substring of s that consists only of characters matching the regex allowed."""
-    return max(allowed.findall(s), key=len, default="")
+    return max((match.group(0) for match in allowed.finditer(s)), key=len, default="")
 
 
 def title_to_filename(title: str, backup_title: str) -> str:
