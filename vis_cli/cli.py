@@ -409,7 +409,7 @@ def parse_cols(_: click.Context, __: click.Parameter, value: Optional[str]) -> O
 @click.option("--head", type=str, default=None, help="Header row to prepend to the output.")
 @click.option("--osep", type=str, default=" ", help="Separator for the output columns.")
 @click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
-@click.option("--time", is_flag=True, help="Parse input as datetimes and output as unix timestamps.")
+@click.option("--time", "as_time", is_flag=True, help="Parse input as datetimes and output as unix timestamps.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--sort", is_flag=True, help="Sort the output.")
 @click.option("--verbose", is_flag=True, default=getenv_bool("VIS_DEBUG"), help="Print verbose output.")
@@ -448,6 +448,8 @@ def clean_cmd(
         sort=sort,
         verbose=verbose,
     )
+    if as_time:
+        vals = tuple(np.array([datetime.fromtimestamp(v) for v in col]) for col in vals)
     if head:
         click.echo(head)
     for val in zip(*vals):
