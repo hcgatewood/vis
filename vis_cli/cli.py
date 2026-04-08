@@ -127,7 +127,7 @@ def hist_cmd(
     force: bool,
     verbose: bool,
 ):
-    """Create a histogram from numerical data."""
+    """Create a histogram from tabular data."""
     rows = read_data(file)
     if as_time:
         xmin: Optional[float] = parse_datetime(str(xmin)).timestamp() if xmin is not None else None

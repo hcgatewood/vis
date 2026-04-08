@@ -1,16 +1,16 @@
-# Vis
+# Vis: visualize data
 
-`vis` is a CLI for visualizing fuzzy tabular data without leaving the terminal.
+`vis` is a CLI for **visualizing fuzzy tabular data** without leaving the terminal.
 
-<p align="center"><img src="https://raw.githubusercontent.com/hcgatewood/vis/main/assets/logo.png" alt="vis logo" width="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/hcgatewood/vis/main/assets/logo4.png" alt="vis logo" width="300"/></p>
 
 ## Features
 
-`vis` provides quick, on-the-fly visualizations of tabular data that may not be perfectly structured. Whether it's output from a command, log file, messy CSV, or more, vis can parse and visualize it with a short one-liner.
+`vis` provides quick, on-the-fly visualizations of tabular data that **may not be perfectly structured**. Whether it's output from a command, log file, messy CSV, or more, vis can **parse and visualize it with a short one-liner**.
 
-- **Visualize** 1D data as histograms and 2D data as scatter/line plots, via [Matplotlib](https://matplotlib.org)-based visualizations managed by [Seaborn](https://seaborn.pydata.org)
+- **Visualize** 1D data as histograms and 2D data as scatter/line plots, via [Matplotlib](https://matplotlib.org) and [Seaborn](https://seaborn.pydata.org)
 - **Fuzzy parsing** extracts numbers from messy data, no strict columns or formats required
-- **Units and time parsing** convert human-friendly formats like `5GB`, `2h30m`, or `3 days ago` into numbers for plotting
+- **Units and time parsing** gracefully converts human-friendly formats like `5GB`, `2h30m`, `3 days ago`
 - **Boundary control** with options to filter outliers or set axis limits
 - **Trend lines and KDE** for deeper insights into data distributions and relationships
 - **Clean-only mode** to just extract and print the parsed numbers without plotting, perfect for data cleaning
@@ -73,6 +73,8 @@ kubectl resource-capacity --pods | grep -v '\*.*\*' | vis scatter --static --col
 
 ## Usage
 
+### Main CLI
+
 ```text
 $ vis --help
 Usage: vis [OPTIONS] COMMAND [ARGS]...
@@ -84,9 +86,46 @@ Options:
 
 Commands:
   clean    Clean the data from a file or stdin and print it to stdout.
-  hist     Create a histogram from numerical data.
+  hist     Create a histogram from tabular data.
   line     Create a line plot from tabular data.
   scatter  Create a scatter plot from tabular data.
+```
+
+### Histograms
+
+```text
+$ vis hist --help
+Usage: vis hist [OPTIONS]
+
+  Create a histogram from numerical data.
+
+Options:
+  --bins INTEGER                  Number of bins for the histogram.  [default: 0]
+  -f, --file TEXT                 Path to the input file. Defaults to stdin.  [default: -]
+  --save                          Save the plot to file.
+  --justsave                      Save the plot to file without displaying it.
+  -o, --output TEXT               Output filename for the plot. Implies --save.
+  --xlab TEXT                     Label for the x-axis.  [default: Value]
+  --ylab TEXT                     Label for the y-axis.
+  --title TEXT                    Title for the plot.
+  --col INTEGER                   Column index to plot.  [default: 0]
+  --static                        Use cols to index into columns instead of list of floats.
+  --sep TEXT                      Separator for the input columns. Implies --static.
+  --xmin TEXT                     Filter x-axis values below.
+  --xmax TEXT                     Filter x-axis values above.
+  --barcolor TEXT                 Color for the histogram bars.
+  --baredge TEXT                  Edge color for the histogram bars.
+  --baralpha FLOAT                Alpha value for the histogram bars.
+  --stat [count|freq|prob|percent|density]
+                                  Statistical measure to display in the histogram.  [default: Count]
+  --step INTEGER                  Step size for x-axis ticks.
+  --kde                           Add a kernel density estimate (KDE) to the histogram.
+  --unit [sec|min|hour|day]       Coerce output to a specific unit. Implies --static.
+  --time                          Parse input and x-axes as datetimes.
+  --strict                        Fail on parse errors instead of skipping them.
+  --force                         Overwrite the output file if it exists.
+  --verbose                       Print verbose output.
+  -h, --help                      Show this message and exit.
 ```
 
 ## How I use vis
