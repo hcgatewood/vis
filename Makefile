@@ -17,7 +17,7 @@ publish: ## Publish the package to PyPI
 
 examples: ## Create example plots
 	awk 'BEGIN { for (i = 0; i < 1000; i++) print rand() * 100 }' | vis hist --kde --title 'Vis Histograms' --justsave --output assets/vis_hist --force
-	echo -e '1 2\n1.5 3\n2 1\n3 1.5\n2 2' | vis scatter --trend --title 'Vis Scatterplots' --justsave --output assets/vis_scatter --force
+	echo -e 'messy 1 data2\nstill1.5results3\n2 1 in\n3    1.5\n2clean2  outputs' | vis scatter --trend --title 'Vis Scatterplots' --justsave --output assets/vis_scatter --force
 	seq 0 0.1 10 | awk '{print $$1, sin($$1)}' | vis line --xlab "Time" --ylab "sin(t)" --title 'Vis Line Plots' --justsave --output assets/vis_line --force
 	#
 	# Manually run the following in respective desired Kubernetes clusters

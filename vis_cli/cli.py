@@ -88,8 +88,8 @@ def cli():
 @click.option("--col", type=int, default=0, show_default=True, help="Column index to plot.")
 @click.option("--static", is_flag=True, help="Use cols to index into columns instead of list of floats.")
 @click.option("--sep", type=str, default=None, help="Separator for the input columns. Implies --static.")
-@click.option("--xmin", type=float, default=None, help="Filter x-axis values below.")
-@click.option("--xmax", type=float, default=None, help="Filter x-axis values above.")
+@click.option("--xmin", type=str, default=None, help="Filter x-axis values below.")
+@click.option("--xmax", type=str, default=None, help="Filter x-axis values above.")
 @click.option("--barcolor", type=str, default="skyblue", help="Color for the histogram bars.")
 @click.option("--baredge", type=str, default="black", help="Edge color for the histogram bars.")
 @click.option("--baralpha", type=float, default=0.75, help="Alpha value for the histogram bars.")
@@ -97,7 +97,7 @@ def cli():
 @click.option("--step", type=int, default=None, help="Step size for x-axis ticks.")
 @click.option("--kde", is_flag=True, help="Add a kernel density estimate (KDE) to the histogram.")
 @click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
-@click.option("--time", "as_time", is_flag=True, help="Parse input as datetimes.")
+@click.option("--time", "as_time", is_flag=True, help="Parse input and x-axes as datetimes.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--force", is_flag=True, help="Overwrite the output file if it exists.")
 @click.option("--verbose", is_flag=True, default=getenv_bool("VIS_DEBUG"), help="Print verbose output.")
@@ -113,8 +113,8 @@ def hist_cmd(
     col: int,
     static: bool,
     sep: Optional[str],
-    xmin: Optional[float],
-    xmax: Optional[float],
+    xmin: Optional[str],
+    xmax: Optional[str],
     barcolor: str,
     baredge: str,
     baralpha: float,
@@ -129,6 +129,12 @@ def hist_cmd(
 ):
     """Create a histogram from numerical data."""
     rows = read_data(file)
+    if as_time:
+        xmin: Optional[float] = parse_datetime(str(xmin)).timestamp() if xmin is not None else None
+        xmax: Optional[float] = parse_datetime(str(xmax)).timestamp() if xmax is not None else None
+    else:
+        xmin: Optional[float] = float(xmin) if xmin is not None else None
+        xmax: Optional[float] = float(xmax) if xmax is not None else None
     x = get_1d_values(
         rows,
         col,
@@ -149,7 +155,7 @@ def hist_cmd(
     plt.figure(figsize=(10, 6), dpi=100)
     plt.locator_params(axis="both", integer=True, tight=True)
     binrange = None
-    if xmin is not None or xmax is not None:
+    if not as_time and (xmin is not None or xmax is not None):  # skip when as_time because plt doesn't play well
         binrange = (xmin or x.min(), xmax or x.max())
         plt.xlim(*binrange)
     sns.histplot(
@@ -205,13 +211,13 @@ def round_down(k: float, multiple: int) -> int:
 @click.option("--cols", type=int, nargs=2, default=(0, 1), show_default=True, help="Column indices to plot.")
 @click.option("--static", is_flag=True, help="Use cols to index into columns instead of list of floats.")
 @click.option("--sep", type=str, default=None, help="Separator for the input columns. Implies --static.")
-@click.option("--xmin", type=float, default=None, help="Filter x-axis values below.")
-@click.option("--xmax", type=float, default=None, help="Filter x-axis values above.")
+@click.option("--xmin", type=str, default=None, help="Filter x-axis values below.")
+@click.option("--xmax", type=str, default=None, help="Filter x-axis values above.")
 @click.option("--ymin", type=float, default=None, help="Filter y-axis values below.")
 @click.option("--ymax", type=float, default=None, help="Filter y-axis values above.")
 @click.option("--linecolor", type=str, default="skyblue", help="Set the color for the points.")
 @click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
-@click.option("--time", "as_time", is_flag=True, help="Parse input x-axis as datetimes.")
+@click.option("--time", "as_time", is_flag=True, help="Parse input x-axis and x-axes as datetimes.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--force", is_flag=True, help="Overwrite the output file if it exists.")
 @click.option("--verbose", is_flag=True, default=getenv_bool("VIS_DEBUG"), help="Print verbose output.")
@@ -226,8 +232,8 @@ def line_cmd(
     cols: tuple[int, int],
     static: bool,
     sep: Optional[str],
-    xmin: Optional[float],
-    xmax: Optional[float],
+    xmin: Optional[str],
+    xmax: Optional[str],
     ymin: Optional[float],
     ymax: Optional[float],
     linecolor: str,
@@ -239,6 +245,12 @@ def line_cmd(
 ):
     """Create a line plot from tabular data."""
     rows = read_data(file)
+    if as_time:
+        xmin: Optional[float] = parse_datetime(str(xmin)).timestamp() if xmin is not None else None
+        xmax: Optional[float] = parse_datetime(str(xmax)).timestamp() if xmax is not None else None
+    else:
+        xmin: Optional[float] = float(xmin) if xmin is not None else None
+        xmax: Optional[float] = float(xmax) if xmax is not None else None
     x, y = get_2d_values(
         rows,
         cols,
@@ -260,7 +272,7 @@ def line_cmd(
     plt.close()  # HACK: close the implicit figure
     plt.figure(figsize=(10, 6), dpi=100)
     plt.locator_params(axis="both", integer=True, tight=True)
-    if xmin is not None or xmax is not None:
+    if not as_time and (xmin is not None or xmax is not None):  # skip when as_time because plt doesn't play well
         plt.xlim(xmin or x.min(), xmax or x.max())
     if ymin is not None or ymax is not None:
         plt.ylim(ymin or y.min(), ymax or y.max())
@@ -293,8 +305,8 @@ def line_cmd(
 @click.option("--cols", type=int, nargs=2, default=(0, 1), show_default=True, help="Column indices to plot.")
 @click.option("--static", is_flag=True, help="Use cols to index into columns instead of list of floats.")
 @click.option("--sep", type=str, default=None, help="Separator for the input columns. Implies --static.")
-@click.option("--xmin", type=float, default=None, help="Filter x-axis values below.")
-@click.option("--xmax", type=float, default=None, help="Filter x-axis values above.")
+@click.option("--xmin", type=str, default=None, help="Filter x-axis values below.")
+@click.option("--xmax", type=str, default=None, help="Filter x-axis values above.")
 @click.option("--ymin", type=float, default=None, help="Filter y-axis values below.")
 @click.option("--ymax", type=float, default=None, help="Filter y-axis values above.")
 @click.option("--pointsize", type=float, default=0, help="Set a static point size for the scatter plot.")
@@ -305,7 +317,7 @@ def line_cmd(
 @click.option("--trendcolor", type=str, default="skyblue", help="Set the color for the trendline.")
 @click.option("--trendstyle", type=str, default="--", help="Set the style for the trendline.")
 @click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
-@click.option("--time", "as_time", is_flag=True, help="Parse input x-axis as datetimes.")
+@click.option("--time", "as_time", is_flag=True, help="Parse input x-axis and x-axes as datetimes.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--force", is_flag=True, help="Overwrite the output file if it exists.")
 @click.option("--verbose", is_flag=True, default=getenv_bool("VIS_DEBUG"), help="Print verbose output.")
@@ -320,8 +332,8 @@ def scatter_cmd(
     cols: tuple[int, int],
     static: bool,
     sep: Optional[str],
-    xmin: Optional[float],
-    xmax: Optional[float],
+    xmin: Optional[str],
+    xmax: Optional[str],
     ymin: Optional[float],
     ymax: Optional[float],
     pointsize: float,
@@ -339,6 +351,12 @@ def scatter_cmd(
 ):
     """Create a scatter plot from tabular data."""
     rows = read_data(file)
+    if as_time:
+        xmin: Optional[float] = parse_datetime(str(xmin)).timestamp() if xmin is not None else None
+        xmax: Optional[float] = parse_datetime(str(xmax)).timestamp() if xmax is not None else None
+    else:
+        xmin: Optional[float] = float(xmin) if xmin is not None else None
+        xmax: Optional[float] = float(xmax) if xmax is not None else None
     x, y = get_2d_values(
         rows,
         cols,
@@ -365,7 +383,7 @@ def scatter_cmd(
     plt.close()  # HACK: close the implicit figure
     plt.figure(figsize=(10, 6), dpi=100)
     plt.locator_params(axis="both", integer=True, tight=True)
-    if xmin is not None or xmax is not None:
+    if not as_time and (xmin is not None or xmax is not None):  # skip when as_time because plt doesn't play well
         plt.xlim(xmin or x.min(), xmax or x.max())
     if ymin is not None or ymax is not None:
         plt.ylim(ymin or y.min(), ymax or y.max())
@@ -409,7 +427,7 @@ def parse_cols(_: click.Context, __: click.Parameter, value: Optional[str]) -> O
 @click.option("--head", type=str, default=None, help="Header row to prepend to the output.")
 @click.option("--osep", type=str, default=" ", help="Separator for the output columns.")
 @click.option("--unit", type=Choice(Unit, case_sensitive=False), default=None, help="Coerce output to a specific unit. Implies --static.")
-@click.option("--time", "as_time", is_flag=True, help="Parse input as datetimes and output as unix timestamps.")
+@click.option("--time", "as_time", is_flag=True, help="Parse input x-axis as datetimes then output as unix timestamps.")
 @click.option("--strict", is_flag=True, help="Fail on parse errors instead of skipping them.")
 @click.option("--sort", is_flag=True, help="Sort the output.")
 @click.option("--verbose", is_flag=True, default=getenv_bool("VIS_DEBUG"), help="Print verbose output.")
@@ -448,8 +466,6 @@ def clean_cmd(
         sort=sort,
         verbose=verbose,
     )
-    if as_time:
-        vals = tuple(np.array([datetime.fromtimestamp(v) for v in col]) for col in vals)
     if head:
         click.echo(head)
     for val in zip(*vals):
@@ -623,7 +639,10 @@ def parse_floats(row: str, cols: tuple[int, ...], static: bool, sep: Optional[st
 def parse_float(val: str, unit: Optional[Unit], as_time: bool) -> float:
     """Parse a string as a float."""
     if as_time:
-        return parse_datetime(val).timestamp()
+        dt = parse_datetime(val)
+        if dt is None:
+            raise ValueError(f"could not parse datetime: {val}")
+        return dt.timestamp()
     if unit:
         return parse_unit(val, unit)
     return float(longest_matching_substr(val, NUMERIC_REGEX))
