@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "vis_cli"
-version = "0.8.0"
+version = "0.8.1"
 description = "Vis visualizes fuzzy tabular data, no script required"
 authors = ["Hunter Gatewood <hgatewood@gmail.com>"]
 readme = "README.md"
@@ -11,6 +11,7 @@ vis = "vis_cli.cli:cli"
 [tool.poetry.dependencies]
 python = "^3.12"
 click = "^8.0.0"
+hcgatewood-coda = "^1.0.1"
 matplotlib = "^3.10"
 numpy = "^2.3"
 pdate_cli = "^0.3.0"
